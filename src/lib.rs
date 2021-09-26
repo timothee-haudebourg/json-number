@@ -5,6 +5,7 @@ use std::{
 
 pub struct InvalidNumber;
 
+#[derive(PartialEq, Eq)]
 pub struct Number {
 	data: [u8]
 }
@@ -194,6 +195,7 @@ impl<'a> TryFrom<&'a str> for &'a Number {
 	}
 }
 
+#[derive(PartialEq, Eq)]
 pub struct NumberBuf {
 	data: Vec<u8>
 }
