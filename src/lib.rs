@@ -360,7 +360,7 @@ impl fmt::Debug for Number {
 }
 
 /// JSON number buffer.
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct NumberBuf<B = String> {
 	data: B,
 }
