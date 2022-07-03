@@ -274,16 +274,6 @@ impl Number {
 	}
 
 	#[inline(always)]
-	pub fn is_f32(&self) -> bool {
-		self.as_f32().is_some()
-	}
-
-	#[inline(always)]
-	pub fn is_f64(&self) -> bool {
-		self.as_f64().is_some()
-	}
-
-	#[inline(always)]
 	pub fn as_i32(&self) -> Option<i32> {
 		self.as_str().parse().ok()
 	}
@@ -304,15 +294,29 @@ impl Number {
 	}
 
 	#[inline(always)]
-	pub fn as_f32(&self) -> Option<f32> {
-		self.as_str().parse::<f32>().ok().filter(|f| f.is_finite())
+	pub fn as_f32_lossy(&self) -> f32 {
+		lexical::parse_with_options::<_, _, { lexical::format::JSON }>(
+			self.as_bytes(),
+			&LOSSY_PARSE_FLOAT,
+		)
+		.unwrap()
 	}
 
 	#[inline(always)]
-	pub fn as_f64(&self) -> Option<f64> {
-		self.as_str().parse::<f64>().ok().filter(|f| f.is_finite())
+	pub fn as_f64_lossy(&self) -> f64 {
+		lexical::parse_with_options::<_, _, { lexical::format::JSON }>(
+			self.as_bytes(),
+			&LOSSY_PARSE_FLOAT,
+		)
+		.unwrap()
 	}
 }
+
+const LOSSY_PARSE_FLOAT: lexical::ParseFloatOptions = unsafe {
+	lexical::ParseFloatOptions::builder()
+		.lossy(true)
+		.build_unchecked()
+};
 
 impl Deref for Number {
 	type Target = str;
@@ -497,11 +501,11 @@ impl<B: AsRef<[u8]>> fmt::Debug for NumberBuf<B> {
 macro_rules! impl_from_int {
 	($($ty:ty),*) => {
 		$(
-			impl<B: AsRef<[u8]> + for<'a> From<&'a [u8]>> From<$ty> for NumberBuf<B> {
+			impl<B: AsRef<[u8]> + for<'a> From<Vec<u8>>> From<$ty> for NumberBuf<B> {
 				#[inline(always)]
 				fn from(i: $ty) -> Self {
 					unsafe {
-						Self::new_unchecked(itoa::Buffer::new().format(i).as_bytes().into())
+						Self::new_unchecked(lexical::to_string(i).into_bytes().into())
 					}
 				}
 			}
@@ -509,14 +513,34 @@ macro_rules! impl_from_int {
 	};
 }
 
-macro_rules! impl_from_float {
+pub enum TryFromFloatError {
+	Nan,
+	Infinite,
+}
+
+const WRITE_FLOAT: lexical::WriteFloatOptions = unsafe {
+	lexical::WriteFloatOptions::builder()
+		.trim_floats(true)
+		.exponent(b'e')
+		.build_unchecked()
+};
+
+macro_rules! impl_try_from_float {
 	($($ty:ty),*) => {
 		$(
-			impl<B: AsRef<[u8]> + for<'a> From<&'a [u8]>> From<$ty> for NumberBuf<B> {
+			impl<B: AsRef<[u8]> + for<'a> From<Vec<u8>>> TryFrom<$ty> for NumberBuf<B> {
+				type Error = TryFromFloatError;
+
 				#[inline(always)]
-				fn from(f: $ty) -> Self {
-					unsafe {
-						Self::new_unchecked(ryu::Buffer::new().format_finite(f).as_bytes().into())
+				fn try_from(f: $ty) -> Result<Self, Self::Error> {
+					if f.is_finite() {
+						Ok(unsafe {
+							Self::new_unchecked(lexical::to_string_with_options::<_, {lexical::format::JSON}>(f, &WRITE_FLOAT).into_bytes().into())
+						})
+					} else if f.is_nan() {
+						Err(TryFromFloatError::Nan)
+					} else {
+						Err(TryFromFloatError::Infinite)
 					}
 				}
 			}
@@ -525,7 +549,7 @@ macro_rules! impl_from_float {
 }
 
 impl_from_int!(u8, i8, u16, i16, u32, i32, u64, i64, usize, isize);
-impl_from_float!(f32, f64);
+impl_try_from_float!(f32, f64);
 
 #[cfg(test)]
 mod tests {

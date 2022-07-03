@@ -1,6 +1,6 @@
 [package]
 name = "json-number"
-version = "0.2.0"
+version = "0.3.0"
 authors = ["Timothée Haudebourg <author@haudebourg.net>"]
 edition = "2021"
 
@@ -17,6 +17,5 @@ default = []
 smallnumberbuf = [ "smallvec" ]
 
 [dependencies]
-ryu = "^1.0"
-itoa = "^0.4"
+lexical = { version = "6.1.1", features = [ "format" ] }
 smallvec = { version = "1.8.1", optional = true }
