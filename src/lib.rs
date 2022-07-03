@@ -513,6 +513,7 @@ macro_rules! impl_from_int {
 	};
 }
 
+#[derive(Clone, Copy, Debug)]
 pub enum TryFromFloatError {
 	Nan,
 	Infinite,
