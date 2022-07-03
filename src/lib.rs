@@ -5,6 +5,7 @@
 //! (by default `String`).
 //! By enabling the `smallnumberbuf` feature, the `SmallNumberBuf<LEN>` type is
 //! defined as `NumberBuf<SmallVec<[u8; LEN]>>` (where `LEN=8` by default).
+use std::borrow::{Borrow, ToOwned};
 use std::fmt;
 use std::ops::Deref;
 use std::str::FromStr;
@@ -34,31 +35,31 @@ pub enum Sign {
 
 impl Sign {
 	/// Checks if the number is zero.
-	#[inline]
+	#[inline(always)]
 	pub fn is_zero(&self) -> bool {
 		matches!(self, Self::Zero)
 	}
 
 	/// Checks if the number is non positive (negative or zero).
-	#[inline]
+	#[inline(always)]
 	pub fn is_non_positive(&self) -> bool {
 		matches!(self, Self::Negative | Self::Zero)
 	}
 
 	/// Checks if the number is non negative (positive or zero).
-	#[inline]
+	#[inline(always)]
 	pub fn is_non_negative(&self) -> bool {
 		matches!(self, Self::Positive | Self::Zero)
 	}
 
 	/// Checks if the number is strictly positive (non zero nor negative).
-	#[inline]
+	#[inline(always)]
 	pub fn is_positive(&self) -> bool {
 		matches!(self, Self::Positive)
 	}
 
 	/// Checks if the number is strictly negative (non zero nor positive).
-	#[inline]
+	#[inline(always)]
 	pub fn is_negative(&self) -> bool {
 		matches!(self, Self::Negative)
 	}
@@ -157,12 +158,12 @@ impl Number {
 	/// ## Safety
 	///
 	/// The `data` input **must** be a valid JSON number.
-	#[inline]
+	#[inline(always)]
 	pub unsafe fn new_unchecked<B: AsRef<[u8]> + ?Sized>(data: &B) -> &Number {
 		std::mem::transmute(data.as_ref())
 	}
 
-	#[inline]
+	#[inline(always)]
 	pub fn as_str(&self) -> &str {
 		unsafe {
 			// safe because `self.data` is always a valid UTF-8 sequence.
@@ -175,7 +176,7 @@ impl Number {
 	/// This include every lexical representation where
 	/// the decimal and fraction part are composed of only
 	/// `0`, maybe preceded with `-`, and an arbitrary exponent part.
-	#[inline]
+	#[inline(always)]
 	pub fn is_zero(&self) -> bool {
 		for b in &self.data {
 			match b {
@@ -211,37 +212,37 @@ impl Number {
 	}
 
 	/// Checks if the number is non positive (negative or zero).
-	#[inline]
+	#[inline(always)]
 	pub fn is_non_positive(&self) -> bool {
 		self.sign().is_non_positive()
 	}
 
 	/// Checks if the number is non negative (positive or zero).
-	#[inline]
+	#[inline(always)]
 	pub fn is_non_negative(&self) -> bool {
 		self.sign().is_non_negative()
 	}
 
 	/// Checks if the number is strictly positive (non zero nor negative).
-	#[inline]
+	#[inline(always)]
 	pub fn is_positive(&self) -> bool {
 		self.sign().is_positive()
 	}
 
 	/// Checks if the number is strictly negative (non zero nor positive).
-	#[inline]
+	#[inline(always)]
 	pub fn is_negative(&self) -> bool {
 		self.sign().is_negative()
 	}
 
 	/// Checks if the number has a fraction part.
-	#[inline]
+	#[inline(always)]
 	pub fn has_fraction(&self) -> bool {
 		self.data.contains(&b'.')
 	}
 
 	/// Checks if the number has an exponent part.
-	#[inline]
+	#[inline(always)]
 	pub fn has_exponent(&self) -> bool {
 		for b in &self.data {
 			if matches!(b, b'e' | b'E') {
@@ -252,62 +253,62 @@ impl Number {
 		false
 	}
 
-	#[inline]
+	#[inline(always)]
 	pub fn is_i32(&self) -> bool {
 		self.as_i32().is_some()
 	}
 
-	#[inline]
+	#[inline(always)]
 	pub fn is_i64(&self) -> bool {
 		self.as_i64().is_some()
 	}
 
-	#[inline]
+	#[inline(always)]
 	pub fn is_u32(&self) -> bool {
 		self.as_u32().is_some()
 	}
 
-	#[inline]
+	#[inline(always)]
 	pub fn is_u64(&self) -> bool {
 		self.as_u64().is_some()
 	}
 
-	#[inline]
+	#[inline(always)]
 	pub fn is_f32(&self) -> bool {
 		self.as_f32().is_some()
 	}
 
-	#[inline]
+	#[inline(always)]
 	pub fn is_f64(&self) -> bool {
 		self.as_f64().is_some()
 	}
 
-	#[inline]
+	#[inline(always)]
 	pub fn as_i32(&self) -> Option<i32> {
 		self.as_str().parse().ok()
 	}
 
-	#[inline]
+	#[inline(always)]
 	pub fn as_i64(&self) -> Option<i64> {
 		self.as_str().parse().ok()
 	}
 
-	#[inline]
+	#[inline(always)]
 	pub fn as_u32(&self) -> Option<u32> {
 		self.as_str().parse().ok()
 	}
 
-	#[inline]
+	#[inline(always)]
 	pub fn as_u64(&self) -> Option<u64> {
 		self.as_str().parse().ok()
 	}
 
-	#[inline]
+	#[inline(always)]
 	pub fn as_f32(&self) -> Option<f32> {
 		self.as_str().parse::<f32>().ok().filter(|f| f.is_finite())
 	}
 
-	#[inline]
+	#[inline(always)]
 	pub fn as_f64(&self) -> Option<f64> {
 		self.as_str().parse::<f64>().ok().filter(|f| f.is_finite())
 	}
@@ -316,44 +317,66 @@ impl Number {
 impl Deref for Number {
 	type Target = str;
 
-	#[inline]
+	#[inline(always)]
 	fn deref(&self) -> &str {
 		self.as_str()
 	}
 }
 
 impl AsRef<str> for Number {
-	#[inline]
+	#[inline(always)]
 	fn as_ref(&self) -> &str {
 		self.as_str()
 	}
 }
 
+impl Borrow<str> for Number {
+	#[inline(always)]
+	fn borrow(&self) -> &str {
+		self.as_str()
+	}
+}
+
 impl AsRef<[u8]> for Number {
-	#[inline]
+	#[inline(always)]
 	fn as_ref(&self) -> &[u8] {
-		self.as_str().as_ref()
+		self.as_bytes()
+	}
+}
+
+impl Borrow<[u8]> for Number {
+	#[inline(always)]
+	fn borrow(&self) -> &[u8] {
+		self.as_bytes()
 	}
 }
 
 impl<'a> TryFrom<&'a str> for &'a Number {
 	type Error = InvalidNumber<&'a str>;
 
-	#[inline]
+	#[inline(always)]
 	fn try_from(s: &'a str) -> Result<&'a Number, InvalidNumber<&'a str>> {
 		Number::new(s)
 	}
 }
 
+impl ToOwned for Number {
+	type Owned = NumberBuf;
+
+	fn to_owned(&self) -> Self::Owned {
+		unsafe { NumberBuf::new_unchecked(self.as_str().to_owned()) }
+	}
+}
+
 impl fmt::Display for Number {
-	#[inline]
+	#[inline(always)]
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		self.as_str().fmt(f)
 	}
 }
 
 impl fmt::Debug for Number {
-	#[inline]
+	#[inline(always)]
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		self.as_str().fmt(f)
 	}
@@ -367,7 +390,7 @@ pub struct NumberBuf<B = String> {
 
 impl<B> NumberBuf<B> {
 	/// Creates a new number buffer by parsing the given input `data` buffer.
-	#[inline]
+	#[inline(always)]
 	pub fn new(data: B) -> Result<Self, InvalidNumber<B>>
 	where
 		B: AsRef<[u8]>,
@@ -383,9 +406,16 @@ impl<B> NumberBuf<B> {
 	/// ## Safety
 	///
 	/// The input `data` **must** hold a valid JSON number string.
-	#[inline]
+	#[inline(always)]
 	pub unsafe fn new_unchecked(data: B) -> Self {
 		NumberBuf { data }
+	}
+}
+
+impl<B: AsRef<[u8]>> NumberBuf<B> {
+	#[inline(always)]
+	pub fn as_number(&self) -> &Number {
+		unsafe { Number::new_unchecked(&self.data) }
 	}
 }
 
@@ -395,7 +425,7 @@ where
 {
 	type Err = InvalidNumber<B>;
 
-	#[inline]
+	#[inline(always)]
 	fn from_str(s: &str) -> Result<Self, Self::Err> {
 		Self::new(s.into())
 	}
@@ -404,23 +434,51 @@ where
 impl<B: AsRef<[u8]>> Deref for NumberBuf<B> {
 	type Target = Number;
 
-	#[inline]
+	#[inline(always)]
 	fn deref(&self) -> &Number {
-		unsafe { Number::new_unchecked(&self.data) }
+		self.as_number()
+	}
+}
+
+impl<B: AsRef<[u8]>> AsRef<Number> for NumberBuf<B> {
+	#[inline(always)]
+	fn as_ref(&self) -> &Number {
+		self.as_number()
+	}
+}
+
+impl<B: AsRef<[u8]>> Borrow<Number> for NumberBuf<B> {
+	#[inline(always)]
+	fn borrow(&self) -> &Number {
+		self.as_number()
 	}
 }
 
 impl<B: AsRef<[u8]>> AsRef<str> for NumberBuf<B> {
-	#[inline]
+	#[inline(always)]
 	fn as_ref(&self) -> &str {
 		self.as_str()
 	}
 }
 
+impl<B: AsRef<[u8]>> Borrow<str> for NumberBuf<B> {
+	#[inline(always)]
+	fn borrow(&self) -> &str {
+		self.as_str()
+	}
+}
+
 impl<B: AsRef<[u8]>> AsRef<[u8]> for NumberBuf<B> {
-	#[inline]
+	#[inline(always)]
 	fn as_ref(&self) -> &[u8] {
-		self.as_str().as_ref()
+		self.as_bytes()
+	}
+}
+
+impl<B: AsRef<[u8]>> Borrow<[u8]> for NumberBuf<B> {
+	#[inline(always)]
+	fn borrow(&self) -> &[u8] {
+		self.as_bytes()
 	}
 }
 
@@ -440,7 +498,7 @@ macro_rules! impl_from_int {
 	($($ty:ty),*) => {
 		$(
 			impl<B: AsRef<[u8]> + for<'a> From<&'a str>> From<$ty> for NumberBuf<B> {
-				#[inline]
+				#[inline(always)]
 				fn from(i: $ty) -> Self {
 					unsafe {
 						Self::new_unchecked(itoa::Buffer::new().format(i).into())
@@ -455,7 +513,7 @@ macro_rules! impl_from_float {
 	($($ty:ty),*) => {
 		$(
 			impl<B: AsRef<[u8]> + for<'a> From<&'a str>> From<$ty> for NumberBuf<B> {
-				#[inline]
+				#[inline(always)]
 				fn from(f: $ty) -> Self {
 					unsafe {
 						Self::new_unchecked(ryu::Buffer::new().format_finite(f).into())
