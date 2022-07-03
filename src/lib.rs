@@ -497,11 +497,11 @@ impl<B: AsRef<[u8]>> fmt::Debug for NumberBuf<B> {
 macro_rules! impl_from_int {
 	($($ty:ty),*) => {
 		$(
-			impl<B: AsRef<[u8]> + for<'a> From<&'a str>> From<$ty> for NumberBuf<B> {
+			impl<B: AsRef<[u8]> + for<'a> From<&'a [u8]>> From<$ty> for NumberBuf<B> {
 				#[inline(always)]
 				fn from(i: $ty) -> Self {
 					unsafe {
-						Self::new_unchecked(itoa::Buffer::new().format(i).into())
+						Self::new_unchecked(itoa::Buffer::new().format(i).as_bytes().into())
 					}
 				}
 			}
@@ -512,11 +512,11 @@ macro_rules! impl_from_int {
 macro_rules! impl_from_float {
 	($($ty:ty),*) => {
 		$(
-			impl<B: AsRef<[u8]> + for<'a> From<&'a str>> From<$ty> for NumberBuf<B> {
+			impl<B: AsRef<[u8]> + for<'a> From<&'a [u8]>> From<$ty> for NumberBuf<B> {
 				#[inline(always)]
 				fn from(f: $ty) -> Self {
 					unsafe {
-						Self::new_unchecked(ryu::Buffer::new().format_finite(f).into())
+						Self::new_unchecked(ryu::Buffer::new().format_finite(f).as_bytes().into())
 					}
 				}
 			}
