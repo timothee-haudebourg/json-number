@@ -2,13 +2,28 @@
 //! to the [JSON specification](https://www.json.org/json-en.html).
 //! It provides two types, the unsized `Number` type acting like `str`,
 //! and the `NumberBuf<B>` type owning the data inside the `B` type
-//! (by default `String`).
+//! (by default `Vec<u8>`).
+//! 
+//! # Features
+//! 
+//! ## Store small owned numbers on the stack
+//! 
 //! By enabling the `smallnumberbuf` feature, the `SmallNumberBuf<LEN>` type is
-//! defined as `NumberBuf<SmallVec<[u8; LEN]>>` (where `LEN=8` by default).
+//! defined as `NumberBuf<SmallVec<[u8; LEN]>>` (where `LEN=8` by default)
+//! thanks to the [`smallvec`](https://crates.io/crates/smallvec) crate.
+//! 
+//! ## Serde support
+//! 
+//! Enable the `serde` feature to add `Serialize`, `Deserialize` and
+//! `Deserializer` implementations to `NumberBuf`.
 use std::borrow::{Borrow, ToOwned};
 use std::fmt;
 use std::ops::Deref;
 use std::str::FromStr;
+
+/// Serde support.
+#[cfg(feature = "serde")]
+pub mod serde;
 
 #[cfg(feature = "smallnumberbuf")]
 mod smallnumberbuf {
@@ -17,11 +32,24 @@ mod smallnumberbuf {
 
 	/// JSON number buffer based on [`SmallVec`](smallvec::SmallVec).
 	pub type SmallNumberBuf<const LEN: usize = 8> = NumberBuf<SmallVec<[u8; LEN]>>;
+
+	unsafe impl<A: smallvec::Array<Item = u8>> crate::Buffer for SmallVec<A> {
+		fn from_vec(bytes: Vec<u8>) -> Self {
+			bytes.into()
+		}
+
+		fn from_bytes(bytes: &[u8]) -> Self {
+			bytes.into()
+		}
+	}
 }
 
 #[cfg(feature = "smallnumberbuf")]
 pub use smallnumberbuf::*;
 
+/// Invalid number error.
+/// 
+/// The inner value is the data failed to be parsed.
 #[derive(Clone, Copy, Debug)]
 pub struct InvalidNumber<T>(T);
 
@@ -235,10 +263,18 @@ impl Number {
 		self.sign().is_negative()
 	}
 
+	/// Checks if the number has a decimal point.
+	#[inline(always)]
+	pub fn has_decimal_point(&self) -> bool {
+		self.data.contains(&b'.')
+	}
+
 	/// Checks if the number has a fraction part.
+	///
+	/// This is an alias for [`has_decimal_point`](Self::has_decimal_point).
 	#[inline(always)]
 	pub fn has_fraction(&self) -> bool {
-		self.data.contains(&b'.')
+		self.has_decimal_point()
 	}
 
 	/// Checks if the number has an exponent part.
@@ -368,7 +404,7 @@ impl ToOwned for Number {
 	type Owned = NumberBuf;
 
 	fn to_owned(&self) -> Self::Owned {
-		unsafe { NumberBuf::new_unchecked(self.as_str().to_owned()) }
+		unsafe { NumberBuf::new_unchecked(self.as_bytes().to_owned()) }
 	}
 }
 
@@ -386,9 +422,31 @@ impl fmt::Debug for Number {
 	}
 }
 
+/// Buffer type.
+///
+/// # Safety
+///
+/// The `AsRef<[u8]>` implementation *must* return the bytes provided using
+/// the `from_bytes` and `from_vec` constructor functions.
+pub unsafe trait Buffer: AsRef<[u8]> {
+	fn from_bytes(bytes: &[u8]) -> Self;
+
+	fn from_vec(bytes: Vec<u8>) -> Self;
+}
+
+unsafe impl Buffer for Vec<u8> {
+	fn from_bytes(bytes: &[u8]) -> Self {
+		bytes.into()
+	}
+
+	fn from_vec(bytes: Vec<u8>) -> Self {
+		bytes
+	}
+}
+
 /// JSON number buffer.
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct NumberBuf<B = String> {
+pub struct NumberBuf<B = Vec<u8>> {
 	data: B,
 }
 
@@ -416,26 +474,23 @@ impl<B> NumberBuf<B> {
 	}
 }
 
-impl<B: AsRef<[u8]>> NumberBuf<B> {
+impl<B: Buffer> NumberBuf<B> {
 	#[inline(always)]
 	pub fn as_number(&self) -> &Number {
 		unsafe { Number::new_unchecked(&self.data) }
 	}
 }
 
-impl<B: AsRef<[u8]>> FromStr for NumberBuf<B>
-where
-	B: for<'a> From<&'a str>,
-{
+impl<B: Buffer> FromStr for NumberBuf<B> {
 	type Err = InvalidNumber<B>;
 
 	#[inline(always)]
 	fn from_str(s: &str) -> Result<Self, Self::Err> {
-		Self::new(s.into())
+		Self::new(B::from_bytes(s.as_bytes()))
 	}
 }
 
-impl<B: AsRef<[u8]>> Deref for NumberBuf<B> {
+impl<B: Buffer> Deref for NumberBuf<B> {
 	type Target = Number;
 
 	#[inline(always)]
@@ -444,55 +499,55 @@ impl<B: AsRef<[u8]>> Deref for NumberBuf<B> {
 	}
 }
 
-impl<B: AsRef<[u8]>> AsRef<Number> for NumberBuf<B> {
+impl<B: Buffer> AsRef<Number> for NumberBuf<B> {
 	#[inline(always)]
 	fn as_ref(&self) -> &Number {
 		self.as_number()
 	}
 }
 
-impl<B: AsRef<[u8]>> Borrow<Number> for NumberBuf<B> {
+impl<B: Buffer> Borrow<Number> for NumberBuf<B> {
 	#[inline(always)]
 	fn borrow(&self) -> &Number {
 		self.as_number()
 	}
 }
 
-impl<B: AsRef<[u8]>> AsRef<str> for NumberBuf<B> {
+impl<B: Buffer> AsRef<str> for NumberBuf<B> {
 	#[inline(always)]
 	fn as_ref(&self) -> &str {
 		self.as_str()
 	}
 }
 
-impl<B: AsRef<[u8]>> Borrow<str> for NumberBuf<B> {
+impl<B: Buffer> Borrow<str> for NumberBuf<B> {
 	#[inline(always)]
 	fn borrow(&self) -> &str {
 		self.as_str()
 	}
 }
 
-impl<B: AsRef<[u8]>> AsRef<[u8]> for NumberBuf<B> {
+impl<B: Buffer> AsRef<[u8]> for NumberBuf<B> {
 	#[inline(always)]
 	fn as_ref(&self) -> &[u8] {
 		self.as_bytes()
 	}
 }
 
-impl<B: AsRef<[u8]>> Borrow<[u8]> for NumberBuf<B> {
+impl<B: Buffer> Borrow<[u8]> for NumberBuf<B> {
 	#[inline(always)]
 	fn borrow(&self) -> &[u8] {
 		self.as_bytes()
 	}
 }
 
-impl<B: AsRef<[u8]>> fmt::Display for NumberBuf<B> {
+impl<B: Buffer> fmt::Display for NumberBuf<B> {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		self.as_str().fmt(f)
 	}
 }
 
-impl<B: AsRef<[u8]>> fmt::Debug for NumberBuf<B> {
+impl<B: Buffer> fmt::Debug for NumberBuf<B> {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		self.as_str().fmt(f)
 	}
@@ -501,11 +556,11 @@ impl<B: AsRef<[u8]>> fmt::Debug for NumberBuf<B> {
 macro_rules! impl_from_int {
 	($($ty:ty),*) => {
 		$(
-			impl<B: AsRef<[u8]> + for<'a> From<Vec<u8>>> From<$ty> for NumberBuf<B> {
+			impl<B: Buffer> From<$ty> for NumberBuf<B> {
 				#[inline(always)]
 				fn from(i: $ty) -> Self {
 					unsafe {
-						Self::new_unchecked(lexical::to_string(i).into_bytes().into())
+						Self::new_unchecked(B::from_vec(lexical::to_string(i).into_bytes()))
 					}
 				}
 			}
@@ -513,9 +568,13 @@ macro_rules! impl_from_int {
 	};
 }
 
+/// Float conversion error.
 #[derive(Clone, Copy, Debug)]
 pub enum TryFromFloatError {
+	/// The float was Nan, which is not a JSON number.
 	Nan,
+
+	/// The float was not finite, and hence not a JSON number.
 	Infinite,
 }
 
@@ -529,14 +588,14 @@ const WRITE_FLOAT: lexical::WriteFloatOptions = unsafe {
 macro_rules! impl_try_from_float {
 	($($ty:ty),*) => {
 		$(
-			impl<B: AsRef<[u8]> + for<'a> From<Vec<u8>>> TryFrom<$ty> for NumberBuf<B> {
+			impl<B: Buffer> TryFrom<$ty> for NumberBuf<B> {
 				type Error = TryFromFloatError;
 
 				#[inline(always)]
 				fn try_from(f: $ty) -> Result<Self, Self::Error> {
 					if f.is_finite() {
 						Ok(unsafe {
-							Self::new_unchecked(lexical::to_string_with_options::<_, {lexical::format::JSON}>(f, &WRITE_FLOAT).into_bytes().into())
+							Self::new_unchecked(B::from_vec(lexical::to_string_with_options::<_, {lexical::format::JSON}>(f, &WRITE_FLOAT).into_bytes()))
 						})
 					} else if f.is_nan() {
 						Err(TryFromFloatError::Nan)
