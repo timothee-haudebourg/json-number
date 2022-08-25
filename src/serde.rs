@@ -87,7 +87,7 @@ impl de::Error for Unexpected {
 	}
 }
 
-impl<'de> Deserializer<'de> for &'de NumberBuf {
+impl<'de, B: Buffer> Deserializer<'de> for &'de NumberBuf<B> {
 	type Error = Unexpected;
 
 	#[inline]
