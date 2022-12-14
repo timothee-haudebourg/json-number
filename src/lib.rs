@@ -3,17 +3,17 @@
 //! It provides two types, the unsized `Number` type acting like `str`,
 //! and the `NumberBuf<B>` type owning the data inside the `B` type
 //! (by default `Vec<u8>`).
-//! 
+//!
 //! # Features
-//! 
+//!
 //! ## Store small owned numbers on the stack
-//! 
+//!
 //! By enabling the `smallnumberbuf` feature, the `SmallNumberBuf<LEN>` type is
 //! defined as `NumberBuf<SmallVec<[u8; LEN]>>` (where `LEN=8` by default)
 //! thanks to the [`smallvec`](https://crates.io/crates/smallvec) crate.
-//! 
+//!
 //! ## Serde support
-//! 
+//!
 //! Enable the `serde` feature to add `Serialize`, `Deserialize` and
 //! `Deserializer` implementations to `NumberBuf`.
 use std::borrow::{Borrow, ToOwned};
@@ -48,7 +48,7 @@ mod smallnumberbuf {
 pub use smallnumberbuf::*;
 
 /// Invalid number error.
-/// 
+///
 /// The inner value is the data failed to be parsed.
 #[derive(Clone, Copy, Debug)]
 pub struct InvalidNumber<T>(T);
@@ -345,6 +345,21 @@ impl Number {
 			&LOSSY_PARSE_FLOAT,
 		)
 		.unwrap()
+	}
+
+	/// Returns the canonical representation of this number according to
+	/// [RFC8785](https://www.rfc-editor.org/rfc/rfc8785#name-serialization-of-numbers).
+	#[cfg(feature = "canonical")]
+	pub fn canonical_with<'b>(&self, buffer: &'b mut ryu_js::Buffer) -> &'b Number {
+		unsafe { Number::new_unchecked(buffer.format_finite(self.as_f64_lossy())) }
+	}
+
+	/// Returns the canonical representation of this number according to
+	/// [RFC8785](https://www.rfc-editor.org/rfc/rfc8785#name-serialization-of-numbers).
+	#[cfg(feature = "canonical")]
+	pub fn canonical(&self) -> NumberBuf {
+		let mut buffer = ryu_js::Buffer::new();
+		self.canonical_with(&mut buffer).to_owned()
 	}
 }
 
@@ -648,6 +663,18 @@ mod tests {
 		};
 	}
 
+	macro_rules! canonical_tests {
+		{ $($id:ident: $input:literal => $output:literal),* } => {
+			$(
+				#[cfg(feature="canonical")]
+				#[test]
+				fn $id () {
+					assert_eq!(Number::new($input).unwrap().canonical().as_number(), Number::new($output).unwrap())
+				}
+			)*
+		};
+	}
+
 	positive_tests! {
 		pos_01: "0",
 		pos_02: "-0",
@@ -696,5 +723,10 @@ mod tests {
 		sign_neg_03: "-0.01e23" => Negative,
 		sign_neg_04: "-1.0E-23" => Negative,
 		sign_neg_05: "-0.00001" => Negative
+	}
+
+	canonical_tests! {
+		canonical_01: "-0.0000" => "0",
+		canonical_02: "0.00000000028" => "2.8e-10"
 	}
 }
