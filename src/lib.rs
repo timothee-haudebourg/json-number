@@ -487,6 +487,15 @@ impl<B> NumberBuf<B> {
 	pub unsafe fn new_unchecked(data: B) -> Self {
 		NumberBuf { data }
 	}
+
+	/// Creates a number buffer from the given `number`.
+	#[inline(always)]
+	pub fn from_number(n: &Number) -> Self
+	where
+		B: FromIterator<u8>,
+	{
+		unsafe { NumberBuf::new_unchecked(n.bytes().collect()) }
+	}
 }
 
 impl<B: Buffer> NumberBuf<B> {

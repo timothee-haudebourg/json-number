@@ -1,6 +1,6 @@
 [package]
 name = "json-number"
-version = "0.4.2"
+version = "0.4.3"
 authors = ["Timothée Haudebourg <author@haudebourg.net>"]
 edition = "2021"
 
