@@ -21,9 +21,13 @@ use std::fmt;
 use std::ops::Deref;
 use std::str::FromStr;
 
-/// Serde support.
+/// `serde` support.
 #[cfg(feature = "serde")]
 pub mod serde;
+
+/// `serde_json` support.
+#[cfg(feature = "serde_json")]
+pub mod serde_json;
 
 #[cfg(feature = "smallnumberbuf")]
 mod smallnumberbuf {
