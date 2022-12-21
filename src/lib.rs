@@ -500,6 +500,28 @@ impl<B> NumberBuf<B> {
 	{
 		unsafe { NumberBuf::new_unchecked(n.bytes().collect()) }
 	}
+
+	#[inline(always)]
+	pub fn buffer(&self) -> &B {
+		&self.data
+	}
+
+	#[inline(always)]
+	pub fn into_buffer(self) -> B {
+		self.data
+	}
+}
+
+impl NumberBuf<String> {
+	#[inline(always)]
+	pub fn into_string(self) -> String {
+		self.data
+	}
+
+	#[inline(always)]
+	pub fn into_bytes(self) -> Vec<u8> {
+		self.data.into_bytes()
+	}
 }
 
 impl<B: Buffer> NumberBuf<B> {
