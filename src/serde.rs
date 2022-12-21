@@ -1,4 +1,4 @@
-use crate::{Buffer, NumberBuf};
+use crate::{Buffer, Number, NumberBuf};
 use de::{Deserialize, Deserializer};
 use ser::{Serialize, Serializer};
 use serde::{de, forward_to_deserialize_any, ser};
@@ -87,38 +87,62 @@ impl de::Error for Unexpected {
 	}
 }
 
-impl<'de, B: Buffer> Deserializer<'de> for &'de NumberBuf<B> {
+impl<'de, B: Buffer> Deserializer<'de> for NumberBuf<B> {
 	type Error = Unexpected;
 
-	#[inline]
+	#[inline(always)]
 	fn deserialize_any<V>(self, visitor: V) -> Result<V::Value, Self::Error>
 	where
 		V: serde::de::Visitor<'de>,
 	{
-		if self.has_decimal_point() {
-			visitor.visit_f64(self.as_f64_lossy())
-		} else if let Some(v) = self.as_i64() {
-			visitor.visit_i64(v)
-		} else {
-			visitor.visit_u64(self.as_u64().unwrap())
-		}
-	}
-
-	#[inline]
-	fn deserialize_newtype_struct<V>(
-		self,
-		_name: &'static str,
-		visitor: V,
-	) -> Result<V::Value, Self::Error>
-	where
-		V: serde::de::Visitor<'de>,
-	{
-		visitor.visit_newtype_struct(self)
+		self.as_number().deserialize_any(visitor)
 	}
 
 	forward_to_deserialize_any! {
 		bool i8 i16 i32 i64 i128 u8 u16 u32 u64 u128 f32 f64 char str string
 		bytes byte_buf option unit unit_struct seq tuple
-		tuple_struct map struct enum identifier ignored_any
+		tuple_struct map struct newtype_struct enum identifier ignored_any
+	}
+}
+
+impl<'de, 'n, B: Buffer> Deserializer<'de> for &'n NumberBuf<B> {
+	type Error = Unexpected;
+
+	#[inline(always)]
+	fn deserialize_any<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+	where
+		V: serde::de::Visitor<'de>,
+	{
+		self.as_number().deserialize_any(visitor)
+	}
+
+	forward_to_deserialize_any! {
+		bool i8 i16 i32 i64 i128 u8 u16 u32 u64 u128 f32 f64 char str string
+		bytes byte_buf option unit unit_struct seq tuple
+		tuple_struct map struct newtype_struct enum identifier ignored_any
+	}
+}
+
+impl<'de, 'n> Deserializer<'de> for &'n Number {
+	type Error = Unexpected;
+
+	#[inline(always)]
+	fn deserialize_any<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+	where
+		V: serde::de::Visitor<'de>,
+	{
+		if let Some(u) = self.as_u64() {
+			visitor.visit_u64(u)
+		} else if let Some(i) = self.as_i64() {
+			visitor.visit_i64(i)
+		} else {
+			visitor.visit_f64(self.as_f64_lossy())
+		}
+	}
+
+	forward_to_deserialize_any! {
+		bool i8 i16 i32 i64 i128 u8 u16 u32 u64 u128 f32 f64 char str string
+		bytes byte_buf option unit unit_struct seq tuple
+		tuple_struct map struct newtype_struct enum identifier ignored_any
 	}
 }
