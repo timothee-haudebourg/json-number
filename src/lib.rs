@@ -55,7 +55,7 @@ pub use smallnumberbuf::*;
 ///
 /// The inner value is the data failed to be parsed.
 #[derive(Clone, Copy, Debug)]
-pub struct InvalidNumber<T>(T);
+pub struct InvalidNumber<T>(pub T);
 
 /// Number sign.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
