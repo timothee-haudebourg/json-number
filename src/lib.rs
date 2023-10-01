@@ -710,6 +710,19 @@ mod tests {
 		};
 	}
 
+	macro_rules! serde_tests {
+		{ $($id:ident: $input:literal => $output:literal),* } => {
+			$(
+				#[cfg(all(feature = "serde", feature = "serde_json"))]
+				#[test]
+				fn $id () {
+					let number: NumberBuf = ::serde_json::from_value(::serde_json::json!($input)).unwrap();
+					assert_eq!(::serde_json::to_value(&number).unwrap(), ::serde_json::json!($output))
+				}
+			)*
+		};
+	}
+
 	positive_tests! {
 		pos_01: "0",
 		pos_02: "-0",
@@ -763,5 +776,14 @@ mod tests {
 	canonical_tests! {
 		canonical_01: "-0.0000" => "0",
 		canonical_02: "0.00000000028" => "2.8e-10"
+	}
+
+	serde_tests! {
+		serde_one_int: 1 => 1,
+		serde_one_str: "1" => 1,
+		serde_minus_one_int: -1 => -1,
+		serde_minus_one_str: "-1" => -1,
+		serde_u64_max: "18446744073709551615" => 18_446_744_073_709_551_615u64,
+		serde_u64_max_plus_one: "18446744073709551616" => "18446744073709551616"
 	}
 }

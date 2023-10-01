@@ -17,7 +17,7 @@ impl<B: Buffer> Serialize for NumberBuf<B> {
 		} else if let Some(v) = self.as_u64() {
 			serializer.serialize_u64(v)
 		} else {
-			Err(<S::Error as ser::Error>::custom("number too large"))
+			serializer.serialize_str(self.as_str())
 		}
 	}
 }
@@ -38,7 +38,7 @@ impl<'de, B: Buffer> serde::de::Visitor<'de> for Visitor<B> {
 	type Value = NumberBuf<B>;
 
 	fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-		formatter.write_str("JSON number")
+		formatter.write_str("JSON number or string")
 	}
 
 	#[inline]
@@ -55,6 +55,12 @@ impl<'de, B: Buffer> serde::de::Visitor<'de> for Visitor<B> {
 	fn visit_f64<E: de::Error>(self, value: f64) -> Result<NumberBuf<B>, E> {
 		NumberBuf::try_from(value)
 			.map_err(|_| E::invalid_value(serde::de::Unexpected::Float(value), &self))
+	}
+
+	#[inline]
+	fn visit_str<E: de::Error>(self, value: &str) -> Result<NumberBuf<B>, E> {
+		NumberBuf::new(B::from_bytes(value.as_bytes()))
+			.map_err(|_| E::invalid_value(serde::de::Unexpected::Str(value), &self))
 	}
 }
 
