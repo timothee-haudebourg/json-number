@@ -30,3 +30,20 @@ impl<'n> From<&'n Number> for serde_json::Number {
 		}
 	}
 }
+
+#[cfg(test)]
+mod tests {
+	use crate::NumberBuf;
+
+	#[test]
+	fn serde_json_arbitrary_precision_compatibility() {
+		let n = NumberBuf::new("1.1".to_owned().into_bytes()).unwrap();
+		let serde_json::Value::Number(serde_json_n) = serde_json::to_value(n.clone()).unwrap()
+		else {
+			panic!("not a number")
+		};
+
+		let m: NumberBuf = serde_json_n.into();
+		assert_eq!(n, m)
+	}
+}

@@ -1,6 +1,6 @@
 [package]
 name = "json-number"
-version = "0.4.6"
+version = "0.4.7"
 authors = ["Timothée Haudebourg <author@haudebourg.net>"]
 edition = "2021"
 
@@ -23,3 +23,6 @@ smallvec = { version = "1.8.1", optional = true }
 serde = { version = "1", optional = true }
 serde_json = { version = "1", optional = true }
 ryu-js = { version = "0.2.2", optional = true }
+
+[dev-dependencies]
+serde_json = { version = "1", features = ["arbitrary_precision"] }

@@ -1,8 +1,14 @@
-use crate::{Buffer, Number, NumberBuf};
+use crate::{Buffer, InvalidNumber, Number, NumberBuf};
 use de::{Deserialize, Deserializer};
 use ser::{Serialize, Serializer};
 use serde::{de, forward_to_deserialize_any, ser};
 use std::{fmt, marker::PhantomData};
+
+/// Structure name used to serialize number with arbitrary precision.
+///
+/// This is the same used by `serde_json`, to ensure compatibility with this
+/// crate.
+const TOKEN: &str = "$serde_json::private::Number";
 
 impl<B: Buffer> Serialize for NumberBuf<B> {
 	#[inline]
@@ -11,7 +17,10 @@ impl<B: Buffer> Serialize for NumberBuf<B> {
 		S: Serializer,
 	{
 		if self.has_decimal_point() {
-			serializer.serialize_f64(self.as_f64_lossy())
+			use serde::ser::SerializeStruct;
+			let mut s = serializer.serialize_struct(TOKEN, 1)?;
+			s.serialize_field(TOKEN, self.as_str())?;
+			s.end()
 		} else if let Some(v) = self.as_i64() {
 			serializer.serialize_i64(v)
 		} else if let Some(v) = self.as_u64() {
@@ -34,7 +43,7 @@ impl<'de, B: Buffer> Deserialize<'de> for NumberBuf<B> {
 /// Number visitor.
 pub struct Visitor<B>(PhantomData<B>);
 
-impl<'de, B: Buffer> serde::de::Visitor<'de> for Visitor<B> {
+impl<'de, B: Buffer> de::Visitor<'de> for Visitor<B> {
 	type Value = NumberBuf<B>;
 
 	fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
@@ -54,7 +63,92 @@ impl<'de, B: Buffer> serde::de::Visitor<'de> for Visitor<B> {
 	#[inline]
 	fn visit_f64<E: de::Error>(self, value: f64) -> Result<NumberBuf<B>, E> {
 		NumberBuf::try_from(value)
-			.map_err(|_| E::invalid_value(serde::de::Unexpected::Float(value), &self))
+			.map_err(|_| E::invalid_value(de::Unexpected::Float(value), &self))
+	}
+
+	fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+	where
+		A: de::MapAccess<'de>,
+	{
+		struct Key;
+
+		impl<'de> Deserialize<'de> for Key {
+			fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+			where
+				D: Deserializer<'de>,
+			{
+				struct KeyVisitor;
+
+				impl<'de> de::Visitor<'de> for KeyVisitor {
+					type Value = Key;
+
+					fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+						formatter.write_str("a valid number field")
+					}
+
+					fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+					where
+						E: de::Error,
+					{
+						if v == TOKEN {
+							Ok(Key)
+						} else {
+							Err(serde::de::Error::custom("expected field with custom name"))
+						}
+					}
+				}
+
+				deserializer.deserialize_identifier(KeyVisitor)
+			}
+		}
+
+		struct Value<B>(NumberBuf<B>);
+
+		impl<'de, B: Buffer> Deserialize<'de> for Value<B> {
+			fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+			where
+				D: Deserializer<'de>,
+			{
+				struct ValueVisitor<B>(PhantomData<B>);
+
+				impl<'de, B: Buffer> de::Visitor<'de> for ValueVisitor<B> {
+					type Value = Value<B>;
+
+					fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+						formatter.write_str("string containing a JSON number")
+					}
+
+					fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+					where
+						E: de::Error,
+					{
+						self.visit_string(v.to_owned())
+					}
+
+					fn visit_string<E>(self, v: String) -> Result<Self::Value, E>
+					where
+						E: de::Error,
+					{
+						match NumberBuf::new(B::from_vec(v.into_bytes())) {
+							Ok(v) => Ok(Value(v)),
+							Err(InvalidNumber(bytes)) => Err(de::Error::custom(InvalidNumber(
+								String::from_utf8(bytes.as_ref().to_owned()).unwrap(),
+							))),
+						}
+					}
+				}
+
+				deserializer.deserialize_identifier(ValueVisitor(PhantomData))
+			}
+		}
+
+		match map.next_key()? {
+			Some(Key) => {
+				let value: Value<B> = map.next_value()?;
+				Ok(value.0)
+			}
+			None => Err(de::Error::invalid_type(de::Unexpected::Map, &self)),
+		}
 	}
 }
 

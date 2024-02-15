@@ -57,6 +57,14 @@ pub use smallnumberbuf::*;
 #[derive(Clone, Copy, Debug)]
 pub struct InvalidNumber<T>(pub T);
 
+impl<T: fmt::Display> fmt::Display for InvalidNumber<T> {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		write!(f, "invalid JSON number: {}", self.0)
+	}
+}
+
+impl<T: fmt::Display + fmt::Debug> std::error::Error for InvalidNumber<T> {}
+
 /// Number sign.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub enum Sign {
@@ -203,6 +211,23 @@ impl Number {
 		}
 	}
 
+	pub fn trimmed(&self) -> &Self {
+		let mut end = 1;
+		let mut i = 1;
+		let mut fractional_part = false;
+		while i < self.data.len() {
+			match self.data[i] {
+				b'0' if fractional_part => (),
+				b'.' => fractional_part = true,
+				_ => end = i + 1,
+			}
+
+			i += 1
+		}
+
+		unsafe { Self::new_unchecked(&self.data[0..end]) }
+	}
+
 	/// Checks if the number is equal to zero (`0`).
 	///
 	/// This include every lexical representation where
@@ -342,6 +367,23 @@ impl Number {
 		.unwrap()
 	}
 
+	/// Returns the number as a `f32` only if the operation does not induce
+	/// imprecisions/approximations.
+	///
+	/// This operation is expensive as it requires allocating a new number
+	/// buffer to check the decimal representation of the generated `f32`.
+	#[inline(always)]
+	pub fn as_f32_lossless(&self) -> Option<f32> {
+		let f = self.as_f32_lossy();
+		let n: NumberBuf = f.try_into().unwrap();
+		eprintln!("n = {n} = {f}");
+		if n.as_number() == self.trimmed() {
+			Some(f)
+		} else {
+			None
+		}
+	}
+
 	#[inline(always)]
 	pub fn as_f64_lossy(&self) -> f64 {
 		lexical::parse_with_options::<_, _, { lexical::format::JSON }>(
@@ -349,6 +391,22 @@ impl Number {
 			&LOSSY_PARSE_FLOAT,
 		)
 		.unwrap()
+	}
+
+	/// Returns the number as a `f64` only if the operation does not induce
+	/// imprecisions/approximations.
+	///
+	/// This operation is expensive as it requires allocating a new number
+	/// buffer to check the decimal representation of the generated `f64`.
+	#[inline(always)]
+	pub fn as_f64_lossless(&self) -> Option<f64> {
+		let f = self.as_f64_lossy();
+		let n: NumberBuf = f.try_into().unwrap();
+		if n.as_number() == self {
+			Some(f)
+		} else {
+			None
+		}
 	}
 
 	/// Returns the canonical representation of this number according to
@@ -664,6 +722,24 @@ impl_try_from_float!(f32, f64);
 #[cfg(test)]
 mod tests {
 	use super::*;
+
+	fn trimming_test(a: &str, b: &str) {
+		let a = Number::new(a).unwrap();
+		let b = Number::new(b).unwrap();
+		assert_eq!(a.trimmed(), b)
+	}
+
+	#[test]
+	fn trimming() {
+		trimming_test("0", "0");
+		trimming_test("0.0", "0");
+		trimming_test("1.0", "1");
+		trimming_test("1.0", "1");
+		trimming_test("1.1", "1.1");
+		trimming_test("1.10000", "1.1");
+		trimming_test("100.0", "100");
+		trimming_test("100.1000", "100.1");
+	}
 
 	macro_rules! positive_tests {
 		{ $($id:ident: $input:literal),* } => {
