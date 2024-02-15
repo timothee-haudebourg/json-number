@@ -10,7 +10,7 @@ use std::{fmt, marker::PhantomData};
 /// crate.
 const TOKEN: &str = "$serde_json::private::Number";
 
-impl<B: Buffer> Serialize for NumberBuf<B> {
+impl Serialize for Number {
 	#[inline]
 	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
 	where
@@ -28,6 +28,16 @@ impl<B: Buffer> Serialize for NumberBuf<B> {
 		} else {
 			Err(<S::Error as ser::Error>::custom("number too large"))
 		}
+	}
+}
+
+impl<B: Buffer> Serialize for NumberBuf<B> {
+	#[inline]
+	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+	where
+		S: Serializer,
+	{
+		self.as_number().serialize(serializer)
 	}
 }
 
