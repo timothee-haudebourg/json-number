@@ -425,11 +425,11 @@ impl Number {
 	}
 }
 
-const LOSSY_PARSE_FLOAT: lexical::ParseFloatOptions = unsafe {
+const LOSSY_PARSE_FLOAT: lexical::ParseFloatOptions =
 	lexical::ParseFloatOptions::builder()
 		.lossy(true)
 		.build_unchecked()
-};
+;
 
 impl Deref for Number {
 	type Target = str;
@@ -686,12 +686,12 @@ pub enum TryFromFloatError {
 	Infinite,
 }
 
-const WRITE_FLOAT: lexical::WriteFloatOptions = unsafe {
+const WRITE_FLOAT: lexical::WriteFloatOptions =
 	lexical::WriteFloatOptions::builder()
 		.trim_floats(true)
 		.exponent(b'e')
 		.build_unchecked()
-};
+;
 
 macro_rules! impl_try_from_float {
 	($($ty:ty),*) => {
