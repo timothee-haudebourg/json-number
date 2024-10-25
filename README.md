@@ -5,6 +5,8 @@
 [![License](https://img.shields.io/crates/l/json-number.svg?style=flat-square)](https://github.com/timothee-haudebourg/json-number#license)
 [![Documentation](https://img.shields.io/badge/docs-latest-blue.svg?style=flat-square)](https://docs.rs/json-number)
 
+<!-- cargo-rdme start -->
+
 This is a simple library for parsing and storing JSON numbers according
 to the [JSON specification](https://www.json.org/json-en.html).
 It provides two types, the unsized `Number` type acting like `str`,
@@ -12,6 +14,8 @@ and the `NumberBuf<B>` type owning the data inside the `B` type
 (by default `String`).
 By enabling the `smallnumberbuf` feature, the `SmallNumberBuf<LEN>` type is
 defined as `NumberBuf<SmallVec<[u8; LEN]>>` (where `LEN=8` by default).
+
+<!-- cargo-rdme end -->
 
 ## License
 

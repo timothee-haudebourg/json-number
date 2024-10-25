@@ -425,11 +425,9 @@ impl Number {
 	}
 }
 
-const LOSSY_PARSE_FLOAT: lexical::ParseFloatOptions =
-	lexical::ParseFloatOptions::builder()
-		.lossy(true)
-		.build_unchecked()
-;
+const LOSSY_PARSE_FLOAT: lexical::ParseFloatOptions = lexical::ParseFloatOptions::builder()
+	.lossy(true)
+	.build_unchecked();
 
 impl Deref for Number {
 	type Target = str;
@@ -457,13 +455,6 @@ impl Borrow<str> for Number {
 impl AsRef<[u8]> for Number {
 	#[inline(always)]
 	fn as_ref(&self) -> &[u8] {
-		self.as_bytes()
-	}
-}
-
-impl Borrow<[u8]> for Number {
-	#[inline(always)]
-	fn borrow(&self) -> &[u8] {
 		self.as_bytes()
 	}
 }
@@ -686,12 +677,10 @@ pub enum TryFromFloatError {
 	Infinite,
 }
 
-const WRITE_FLOAT: lexical::WriteFloatOptions =
-	lexical::WriteFloatOptions::builder()
-		.trim_floats(true)
-		.exponent(b'e')
-		.build_unchecked()
-;
+const WRITE_FLOAT: lexical::WriteFloatOptions = lexical::WriteFloatOptions::builder()
+	.trim_floats(true)
+	.exponent(b'e')
+	.build_unchecked();
 
 macro_rules! impl_try_from_float {
 	($($ty:ty),*) => {
