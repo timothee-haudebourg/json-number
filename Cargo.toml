@@ -13,12 +13,13 @@ license = "MIT/Apache-2.0"
 readme = "README.md"
 
 [features]
-default = []
-smallnumberbuf = [ "smallvec" ]
-canonical = [ "ryu-js" ]
+default = ["serde"]
+smallnumberbuf = ["smallvec"]
+canonical = ["ryu-js"]
 
 [dependencies]
-lexical = { version = "7.0.1", features = [ "format" ] }
+thiserror = "2.0.12"
+lexical = { version = "7.0.1", features = ["format"] }
 smallvec = { version = "1.8.1", optional = true }
 serde = { version = "1", optional = true }
 serde_json = { version = "1", optional = true }

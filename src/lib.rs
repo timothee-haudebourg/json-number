@@ -16,7 +16,7 @@
 //!
 //! Enable the `serde` feature to add `Serialize`, `Deserialize` and
 //! `Deserializer` implementations to `NumberBuf`.
-use std::borrow::{Borrow, ToOwned};
+use std::borrow::{Borrow, Cow, ToOwned};
 use std::fmt;
 use std::ops::Deref;
 use std::str::FromStr;
@@ -409,6 +409,10 @@ impl Number {
 		}
 	}
 
+	fn to_owned<B: Buffer>(&self) -> NumberBuf<B> {
+		unsafe { NumberBuf::new_unchecked(Buffer::from_bytes(self.as_bytes())) }
+	}
+
 	/// Returns the canonical representation of this number according to
 	/// [RFC8785](https://www.rfc-editor.org/rfc/rfc8785#name-serialization-of-numbers).
 	#[cfg(feature = "canonical")]
@@ -668,12 +672,14 @@ macro_rules! impl_from_int {
 }
 
 /// Float conversion error.
-#[derive(Clone, Copy, Debug)]
+#[derive(Debug, Clone, Copy, thiserror::Error)]
 pub enum TryFromFloatError {
 	/// The float was Nan, which is not a JSON number.
+	#[error("Not a number")]
 	Nan,
 
 	/// The float was not finite, and hence not a JSON number.
+	#[error("Not finite")]
 	Infinite,
 }
 
@@ -705,8 +711,42 @@ macro_rules! impl_try_from_float {
 	};
 }
 
-impl_from_int!(u8, i8, u16, i16, u32, i32, u64, i64, usize, isize);
+impl_from_int!(u8, i8, u16, i16, u32, i32, u64, i64, u128, i128, usize, isize);
 impl_try_from_float!(f32, f64);
+
+pub enum CowNumber<'a, B = Vec<u8>> {
+	Borrowed(&'a Number),
+	Owned(NumberBuf<B>),
+}
+
+impl<'a, B: Buffer> CowNumber<'a, B> {
+	pub fn into_owned(self) -> NumberBuf<B> {
+		match self {
+			Self::Borrowed(value) => unsafe {
+				NumberBuf::new_unchecked(B::from_bytes(value.as_bytes()))
+			},
+			Self::Owned(value) => value,
+		}
+	}
+}
+
+impl<'a> From<CowNumber<'a>> for Cow<'a, Number> {
+	fn from(value: CowNumber<'a>) -> Self {
+		match value {
+			CowNumber::Borrowed(value) => Self::Borrowed(value),
+			CowNumber::Owned(value) => Self::Owned(value),
+		}
+	}
+}
+
+impl<'a> From<Cow<'a, Number>> for CowNumber<'a> {
+	fn from(value: Cow<'a, Number>) -> Self {
+		match value {
+			Cow::Borrowed(value) => Self::Borrowed(value),
+			Cow::Owned(value) => Self::Owned(value),
+		}
+	}
+}
 
 #[cfg(test)]
 mod tests {
