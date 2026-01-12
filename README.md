@@ -7,13 +7,27 @@
 
 <!-- cargo-rdme start -->
 
+This library is deprecated and has been fully integrated into the
+[`json-syntax`](https://github.com/timothee-haudebourg/json-syntax) library.
+
 This is a simple library for parsing and storing JSON numbers according
 to the [JSON specification](https://www.json.org/json-en.html).
 It provides two types, the unsized `Number` type acting like `str`,
 and the `NumberBuf<B>` type owning the data inside the `B` type
-(by default `String`).
+(by default `Vec<u8>`).
+
+## Features
+
+### Store small owned numbers on the stack
+
 By enabling the `smallnumberbuf` feature, the `SmallNumberBuf<LEN>` type is
-defined as `NumberBuf<SmallVec<[u8; LEN]>>` (where `LEN=8` by default).
+defined as `NumberBuf<SmallVec<[u8; LEN]>>` (where `LEN=8` by default)
+thanks to the [`smallvec`](https://crates.io/crates/smallvec) crate.
+
+### Serde support
+
+Enable the `serde` feature to add `Serialize`, `Deserialize` and
+`Deserializer` implementations to `NumberBuf`.
 
 <!-- cargo-rdme end -->
 

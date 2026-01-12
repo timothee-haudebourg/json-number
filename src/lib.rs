@@ -1,3 +1,6 @@
+//! This library is deprecated and has been fully integrated into the
+//! [`json-syntax`](https://github.com/timothee-haudebourg/json-syntax) library.
+//!
 //! This is a simple library for parsing and storing JSON numbers according
 //! to the [JSON specification](https://www.json.org/json-en.html).
 //! It provides two types, the unsized `Number` type acting like `str`,
